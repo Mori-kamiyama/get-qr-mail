@@ -89,7 +89,7 @@ app.get('/authenticate/:name', async (req, res) => {
  */
 app.get('/oauth2callback', async (req, res) => {
     const code = req.query.code;
-    const state = req.query.state; // state パラメータから userName を取得
+    const state = req.query.state; // または req.query.name
 
     if (!code || !state) {
         return res.status(400).send('Missing code or state param.');
@@ -115,7 +115,7 @@ app.get('/oauth2callback', async (req, res) => {
         // 終了: ユーザーにメッセージを返す
         res.send(`Authentication successful for ${userName}.<br>Token saved to ${tokenPath}`);
     } catch (error) {
-        console.error('Error in /callback:', error);
+        console.error('Error in /oauth2callback:', error);
         res.status(500).send('Error retrieving access token');
     }
 });
