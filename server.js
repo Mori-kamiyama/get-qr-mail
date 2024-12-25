@@ -75,7 +75,7 @@ app.get('/authenticate/:name', async (req, res) => {
 /**
  * /callback
  */
-app.get('/callback', async (req, res) => {
+app.get('/oauth2callback', async (req, res) => {
     const code = req.query.code;
     const state = req.query.state;
 
@@ -84,24 +84,22 @@ app.get('/callback', async (req, res) => {
         return res.status(400).send('Missing code or state param.');
     }
 
-    const userName = state;
-
     try {
-        const oAuth2Client = await createOAuth2ClientForUser(userName);
+        const oAuth2Client = await createOAuth2ClientForUser(state);
 
+        // Exchange authorization code for access token
         const { tokens } = await oAuth2Client.getToken(code);
-        console.log('Tokens received:', tokens);
+        oAuth2Client.setCredentials(tokens);
 
-        oAuth2Client.credentials = tokens;
-
-        const tokenPath = getTokenPathForUser(userName);
+        // Save the token for later use
+        const tokenPath = getTokenPathForUser(state);
         fs.writeFileSync(tokenPath, JSON.stringify(tokens, null, 2));
         console.log(`Token stored to ${tokenPath}`);
 
-        res.send(`Authentication successful for ${userName}.<br>Token saved to ${tokenPath}`);
+        res.send(`Authentication successful for ${state}. Token saved.`);
     } catch (error) {
-        console.error('Error in /callback:', error);
-        res.status(500).send('Error retrieving access token');
+        console.error('Error during OAuth2 callback:', error);
+        res.status(500).send('Authentication failed.');
     }
 });
 
