@@ -5,15 +5,21 @@ const fs = require('fs').promises;
 const path = require('path');
 const { google } = require('googleapis');
 const { v4: uuidv4 } = require('uuid');  // ← 追加
-const port = 4000;
+const port = 5001; // Nginx の proxy_pass に合わせてポートを 5001 に変更
 
 // 1. Google OAuth クライアント情報を読み込む
 const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
 let credentials = null;
-(async () => {
-    const data = await fs.readFile(CREDENTIALS_PATH, 'utf8');
+
+// credentials.json を同期的に読み込む（サーバー起動前に確実に読み込むため）
+try {
+    const data = fs.readFile(CREDENTIALS_PATH, 'utf8');
     credentials = JSON.parse(data);
-})();
+    console.log('Credentials loaded successfully.');
+} catch (error) {
+    console.error('Error loading credentials.json:', error);
+    process.exit(1); // 読み込みに失敗した場合、アプリを終了
+}
 
 // スコープ例: Gmail の Read-Only
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
@@ -60,11 +66,12 @@ app.get('/authenticate/:name', async (req, res) => {
         // OAuth2Client 生成
         const oAuth2Client = await createOAuth2ClientForUser(userName);
 
-        // 認証URLを作成
+        // 認証URLを作成（state パラメータに userName を含める）
         const authUrl = oAuth2Client.generateAuthUrl({
             access_type: 'offline',   // リフレッシュトークンを取得するために必要
             prompt: 'consent',        // 毎回同意画面が出るように (必須ではない)
             scope: SCOPES,
+            state: userName,          // 追加
         });
 
         // Google認証画面へリダイレクト
@@ -78,15 +85,17 @@ app.get('/authenticate/:name', async (req, res) => {
 /**
  * /callback
  * Google が code を付与してリダイレクトしてくるエンドポイント
- * - 通常は /authenticate/:name で仕込んだ state 等でユーザー名を特定する
+ * - state パラメータからユーザー名を特定する
  */
-app.get('/callback', async (req, res) => {
+app.get('/oauth2callback', async (req, res) => {
     const code = req.query.code;
-    const userName = req.query.name;
+    const state = req.query.state; // state パラメータから userName を取得
 
-    if (!code || !userName) {
-        return res.status(400).send('Missing code or name param.');
+    if (!code || !state) {
+        return res.status(400).send('Missing code or state param.');
     }
+
+    const userName = state; // state を userName として使用
 
     try {
         // ユーザー用クライアント生成
@@ -123,7 +132,7 @@ async function getLatestEmails(auth, userName) {
         // メール一覧を取得 (最大10件)
         const listResp = await gmail.users.messages.list({
             userId: 'me',
-            q: '-label:spam -label:trash -label:promotions -label:social {subject:入退館 subject:入館 subject:来社}',
+            q: '-label:spam -label:trash -label:promotions -label:social subject:(入退館 OR 入館 OR 来社)',
             maxResults: 10,
         });
 
