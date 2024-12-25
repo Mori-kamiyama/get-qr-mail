@@ -5,7 +5,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { google } = require('googleapis');
 const { v4: uuidv4 } = require('uuid');  // ← 追加
-const port = 5001; // Nginx の proxy_pass に合わせてポートを 5001 に変更
+const port = 4000; // Nginx の proxy_pass に合わせてポートを 5001 に変更
 
 // 1. Google OAuth クライアント情報を読み込む
 const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
