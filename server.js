@@ -111,7 +111,7 @@ async function getLatestEmails(auth, userName) {
     try {
         const listResp = await gmail.users.messages.list({
             userId: 'me',
-            q: '-label:spam -label:trash -label:promotions -label:social subject:(入退館 OR 入館 OR 来社)',
+            q: '-label:spam -label:trash -label:promotions -label:social subject:(入退館 OR 入館 OR 来社 OR　来館　OR 訪問)',
             maxResults: 50,
         });
 
