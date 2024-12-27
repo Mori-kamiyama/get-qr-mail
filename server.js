@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const express = require('express');
 const app = express();
 const port = 5001; // Nginx の proxy_pass に合わせてポートを 5001 に設定
+const base64url = require('base64url');
 
 // 1. Google OAuth クライアント情報を読み込む
 const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
@@ -111,7 +112,7 @@ async function getLatestEmails(auth, userName) {
     try {
         const listResp = await gmail.users.messages.list({
             userId: 'me',
-            q: '-label:spam -label:trash -label:promotions -label:social subject:(入退館 OR 入館 OR 来社 OR　来館　OR 訪問)',
+            q: '-label:spam -label:trash -label:promotions -label:social subject:(入退館 OR 入館 OR 来社 OR 来館 OR 訪問)',
             maxResults: 50,
         });
 
@@ -127,8 +128,7 @@ async function getLatestEmails(auth, userName) {
                 const detailResp = await gmail.users.messages.get({
                     userId: 'me',
                     id: message.id,
-                    format: 'metadata',
-                    metadataHeaders: ['Subject', 'Date'],
+                    format: 'full', // Change format to 'full' to get the body
                 });
 
                 const headers = detailResp.data.payload.headers;
@@ -141,6 +141,24 @@ async function getLatestEmails(auth, userName) {
                     date = new Date(dateHeader.value).toISOString();
                 }
 
+                // Function to recursively find the part with the desired MIME type
+                const getBody = (payload) => {
+                    if (!payload.parts) {
+                        return payload.body && payload.body.data ? base64url.decode(payload.body.data) : '';
+                    }
+                    for (const part of payload.parts) {
+                        if (part.mimeType === 'text/plain') {
+                            return part.body && part.body.data ? base64url.decode(part.body.data) : '';
+                        } else if (part.mimeType === 'multipart/alternative' || part.mimeType === 'multipart/mixed') {
+                            const result = getBody(part);
+                            if (result) return result;
+                        }
+                    }
+                    return '';
+                };
+
+                const body = getBody(detailResp.data.payload) || 'No Body';
+
                 emailData.push({
                     id: uuidv4(),
                     date: date,
@@ -149,6 +167,7 @@ async function getLatestEmails(auth, userName) {
                     mail: `https://mail.google.com/mail/u/0/#inbox/${message.id}`,
                     'QR-data': 'abcdefghijk0123456', // 固定値
                     subject: subject,
+                    body: body, // Add the email body here
                 });
             } catch (err) {
                 console.error(`Error fetching message ${message.id}:`, err);
