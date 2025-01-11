@@ -162,10 +162,10 @@ async function getLatestEmails(auth, userName) {
                 emailData.push({
                     id: uuidv4(),
                     date: date,
-                    place: 'shibuya-OOOO', // 固定値
+                    place: '', // 固定値
                     person: userName,
                     mail: `https://mail.google.com/mail/u/0/#inbox/${message.id}`,
-                    'QR-data': 'abcdefghijk0123456', // 固定値
+                    'QR-data': '', // 固定値
                     subject: subject,
                     body: body, // Add the email body here
                 });
